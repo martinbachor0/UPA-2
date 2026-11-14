@@ -279,10 +279,9 @@ def create_categorical_dataset(imputed_working, output_path="categorical.csv"):
 
 
 def create_numerical_dataset(imputed_working, output_path="numerical.csv"):
-    """Create and validate the numeric regression dataset."""
+    """Create and validate the numeric regression dataset with all columns in [0, 1]."""
     numerical = imputed_working.copy()
-    target_column = "Current price (EUR)"
-    numeric_features = ["Weight (kg)", "Width (mm)"]
+    numeric_columns = ["Current price (EUR)", "Weight (kg)", "Width (mm)"]
     categorical_features = [
         "Category",
         "Material",
@@ -292,10 +291,10 @@ def create_numerical_dataset(imputed_working, output_path="numerical.csv"):
     ]
 
     scaler = MinMaxScaler()
-    numerical[numeric_features] = scaler.fit_transform(numerical[numeric_features])
+    numerical[numeric_columns] = scaler.fit_transform(numerical[numeric_columns])
     print("\nMin-Max scaling ranges:")
     for column, minimum, maximum in zip(
-        numeric_features, scaler.data_min_, scaler.data_max_
+        numeric_columns, scaler.data_min_, scaler.data_max_
     ):
         print(f"  {column}: original min={minimum}, original max={maximum}")
 
@@ -314,7 +313,7 @@ def create_numerical_dataset(imputed_working, output_path="numerical.csv"):
 
     numerical = pd.concat(
         [
-            numerical[[target_column] + numeric_features],
+            numerical[numeric_columns],
             encoded,
         ],
         axis=1,
@@ -325,10 +324,9 @@ def create_numerical_dataset(imputed_working, output_path="numerical.csv"):
         pd.api.types.is_numeric_dtype(numerical[column])
         for column in numerical.columns
     )
-    feature_columns = [column for column in numerical.columns if column != target_column]
     assert (
-        numerical[feature_columns].ge(0).all().all()
-        and numerical[feature_columns].le(1).all().all()
+        numerical.ge(0).all().all()
+        and numerical.le(1).all().all()
     )
     numerical.to_csv(output_path, sep=",", encoding="utf-8", index=False)
     return numerical
@@ -420,8 +418,8 @@ def main():
         f"{all(pd.api.types.is_numeric_dtype(dtype) for dtype in numerical.dtypes)}"
     )
     print(
-        f"  All feature values in [0, 1]: "
-        f"{numerical.drop(columns=['Current price (EUR)']).ge(0).all().all() and numerical.drop(columns=['Current price (EUR)']).le(1).all().all()}"
+        f"  All column values in [0, 1]: "
+        f"{numerical.ge(0).all().all() and numerical.le(1).all().all()}"
     )
     print("\nFirst five rows of numerical.csv:")
     print(numerical.head().to_string(index=False))

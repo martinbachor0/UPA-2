@@ -30,7 +30,7 @@ SEMANTIC_TYPES = {
     "Gender": "categorical",
     "Rim material": "categorical",
     "Width": "numeric stored as text",
-    "Axle dimension": "text",
+    "Axle dimension": "categorical",
 }
 
 
@@ -151,10 +151,10 @@ def print_category_material_crosstabs(data):
 def create_figures(analysis_data):
     figures_directory = Path("figures")
     figures_directory.mkdir(exist_ok=True)
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="whitegrid", font_scale=1.15)
 
     price_data = analysis_data.dropna(subset=["Current price (EUR)"])
-    plt.figure(figsize=(9, 6))
+    plt.figure(figsize=(8.5, 5.2))
     sns.histplot(price_data["Current price (EUR)"], bins=18)
     plt.title("Distribution of Current Prices")
     plt.xlabel("Current price (EUR)")
@@ -163,7 +163,7 @@ def create_figures(analysis_data):
     plt.savefig(figures_directory / "01_price_histogram.png", dpi=150)
     plt.close()
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8.5, 5.2))
     sns.boxplot(
         data=price_data,
         x="Category",
@@ -181,14 +181,14 @@ def create_figures(analysis_data):
     scatter_data = analysis_data.dropna(
         subset=["Weight (kg)", "Current price (EUR)", "Category"]
     )
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8.5, 5.2))
     sns.scatterplot(
         data=scatter_data,
         x="Weight (kg)",
         y="Current price (EUR)",
         hue="Category",
         hue_order=sorted(scatter_data["Category"].unique()),
-        s=70,
+        s=80,
     )
     plt.title("Weight versus Current Price")
     plt.xlabel("Weight (kg)")
@@ -220,7 +220,7 @@ def create_figures(analysis_data):
     ax = material_by_category.plot(
         kind="bar",
         stacked=True,
-        figsize=(10, 6),
+        figsize=(8.5, 5.2),
         colormap="tab10",
     )
     ax.set_title("Frame Material Distribution by Category")
@@ -235,13 +235,14 @@ def create_figures(analysis_data):
     weight_data = analysis_data.dropna(subset=["Weight (kg)", "Category"])
     weight_data = weight_data[weight_data["Category"] != "hybrid-city-bikes"]
     category_order = sorted(weight_data["Category"].unique())
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8.5, 5.2))
     sns.violinplot(
         data=weight_data,
         x="Category",
         y="Weight (kg)",
         order=category_order,
         inner="box",
+        cut=0,
     )
     plt.title(
         "Weight by Bicycle Category\n"
@@ -263,7 +264,7 @@ def create_figures(analysis_data):
         "Aluminium (AL)",
         "Carbon",
     ]
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8.5, 5.2))
     sns.boxplot(
         data=price_by_material,
         x="Material",
@@ -281,6 +282,28 @@ def create_figures(analysis_data):
     plt.savefig(figures_directory / "06_price_by_material.png", dpi=150)
     plt.close()
 
+    width_data = analysis_data.dropna(subset=["Width (mm)", "Category"])
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.8))
+    sns.histplot(width_data["Width (mm)"], bins=15, kde=True, ax=axes[0])
+    axes[0].set_title("Distribution of Tyre Width")
+    axes[0].set_xlabel("Width (mm)")
+    axes[0].set_ylabel("Number of bicycles")
+
+    sns.boxplot(
+        data=width_data,
+        x="Category",
+        y="Width (mm)",
+        order=sorted(width_data["Category"].unique()),
+        ax=axes[1],
+    )
+    axes[1].set_title("Tyre Width by Bicycle Category")
+    axes[1].set_xlabel("Category")
+    axes[1].set_ylabel("Width (mm)")
+    axes[1].tick_params(axis="x", rotation=20)
+    plt.tight_layout()
+    plt.savefig(figures_directory / "07_width_distribution.png", dpi=150)
+    plt.close()
+
 
 def print_outlier_record(row, value_column, method):
     print(
@@ -295,6 +318,7 @@ def print_outlier_analysis(analysis_data):
     numeric_columns = [
         ("Current price (EUR)", "Current price"),
         ("Weight (kg)", "Weight"),
+        ("Width (mm)", "Width"),
     ]
 
     for value_column, label in numeric_columns:
@@ -426,7 +450,7 @@ def analyze_missing_values(data):
         pair_count = int((missing[first] & missing[second]).sum())
         print(f"  {first} + {second}: {pair_count}")
 
-    plt.figure(figsize=(12, 10))
+    plt.figure(figsize=(9.5, 7.5))
     sns.heatmap(
         missing.astype(int),
         cmap=["white", "firebrick"],
@@ -436,10 +460,10 @@ def analyze_missing_values(data):
         linewidths=0.15,
         linecolor="lightgray",
     )
-    plt.title("Missing-Value Matrix (red = missing)")
-    plt.xlabel("Original attribute")
-    plt.ylabel("Product row")
-    plt.xticks(rotation=35, ha="right")
+    plt.title("Missing-Value Matrix (red = missing)", fontsize=13)
+    plt.xlabel("Original attribute", fontsize=11.5)
+    plt.ylabel("Product row", fontsize=11.5)
+    plt.xticks(rotation=35, ha="right", fontsize=10.5)
     plt.tight_layout()
     plt.savefig(Path("figures") / "07_missing_values.png", dpi=150)
     plt.close()
@@ -468,6 +492,29 @@ def analyze_correlations(analysis_data, original_data):
     for first, second in combinations(analysis_columns, 2):
         pair_count = numeric_data[[first, second]].dropna().shape[0]
         print(f"  {first} + {second}: {pair_count}")
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.8))
+    for ax, (method, matrix) in zip(axes, [("Pearson", pearson), ("Spearman", spearman)]):
+        sns.heatmap(
+            matrix,
+            annot=True,
+            fmt=".3f",
+            annot_kws={"size": 11, "weight": "bold"},
+            vmin=-1,
+            vmax=1,
+            center=0,
+            cmap="coolwarm",
+            square=True,
+            ax=ax,
+            cbar_kws={"shrink": 0.82},
+        )
+        ax.set_title(f"{method} Correlations", fontsize=13, pad=10)
+        ax.set_xlabel("Attribute", fontsize=11.5)
+        ax.set_ylabel("Attribute", fontsize=11.5)
+        ax.tick_params(labelsize=10.5)
+    plt.tight_layout()
+    plt.savefig(Path("figures") / "08_correlation_matrices.png", dpi=150)
+    plt.close()
 
     for method, matrix, filename in [
         ("Pearson", pearson, "08_pearson_correlation.png"),
@@ -558,6 +605,12 @@ def main():
         analysis_data["Weight (kg)"],
         "Weight",
         "Weight (kg)",
+    )
+    print_numeric_summary(
+        data,
+        analysis_data["Width (mm)"],
+        "Width",
+        "Width (mm)",
     )
 
     print("\nCategory counts:")
